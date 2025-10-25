@@ -1,52 +1,65 @@
 package main
 
 import (
- "encoding/json"
- "log"
- "net/http"
- "sync"
- "time"
+	"encoding/json"
+	"log"
+	"net/http"
+	"os"
+	"sync"
+	"time"
 )
 
-type Stats struct{ TotalTransfers int `json:"totalTransfers"` }
-type Donation struct{ TxnID, Date string `json:"txnId","date"` }
+// --- Data Structures ---
+type Stats struct {
+	TotalTransfers int    `json:"totalTransfers"`
+	LastDonation   string `json:"lastDonation"`
+}
 
+type Donation struct {
+	TxnID string `json:"txnID"`
+	Date  string `json:"date"`
+}
+
+// --- Global Variables ---
 var (
- mu     sync.Mutex
- stats  = Stats{TotalTransfers: 0}
- last   = Donation{}
+	mu    sync.Mutex
+	stats = Stats{TotalTransfers: 0, LastDonation: ""}
 )
 
-func main(){
+// --- Handlers ---
+func handleStats(w http.ResponseWriter, r *http.Request) {
+	mu.Lock()
+	defer mu.Unlock()
+	json.NewEncoder(w).Encode(stats)
+}
+
+func handleSim(w http.ResponseWriter, r *http.Request) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	stats.TotalTransfers++
+	if stats.TotalTransfers >= 1000 {
+		stats.LastDonation = time.Now().Format("2006-01-02 15:04:05")
+		log.Println("💧 Amina Humanity Fund: $100 donation triggered!")
+		stats.TotalTransfers = 0
+	}
+	json.NewEncoder(w).Encode(stats)
+}
+
+// --- Main Server ---
 func main() {
-	http.HandleFunc("/stats", handleStats)
-	http.HandleFunc("/last-donation", handleLast)
-	http.HandleFunc("/simulate", handleSim)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte("Amina Water backend running ✓ — try /stats or /simulate"))
+		w.Write([]byte("Amina Water backend live ✓ — use /stats or /simulate"))
 	})
-	
-	log.Println("Amina Water backend running on :8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
-}
-}
+	http.HandleFunc("/stats", handleStats)
+	http.HandleFunc("/simulate", handleSim)
 
-func handleStats(w http.ResponseWriter, _ *http.Request){
- mu.Lock(); defer mu.Unlock()
- json.NewEncoder(w).Encode(stats)
-}
-func handleLast(w http.ResponseWriter, _ *http.Request){
- mu.Lock(); defer mu.Unlock()
- json.NewEncoder(w).Encode(last)
-}
-func handleSim(w http.ResponseWriter, _ *http.Request){
- mu.Lock()
- stats.TotalTransfers++
- if stats.TotalTransfers>=1000 {
-  last = Donation{TxnID:"SIMULATED_"+time.Now().Format("150405"),Date:time.Now().Format(time.RFC822)}
-  stats.TotalTransfers=0
- }
- mu.Unlock()
- w.WriteHeader(204)
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	log.Println("🌍 Amina Water backend running on port " + port)
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
