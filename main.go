@@ -18,11 +18,18 @@ var (
 )
 
 func main(){
- http.HandleFunc("/stats", handleStats)
- http.HandleFunc("/last-donation", handleLast)
- http.HandleFunc("/simulate", handleSim)
- log.Println("Amina Water backend running on :8080")
- log.Fatal(http.ListenAndServe(":8080", nil))
+func main() {
+	http.HandleFunc("/stats", handleStats)
+	http.HandleFunc("/last-donation", handleLast)
+	http.HandleFunc("/simulate", handleSim)
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.Write([]byte("Amina Water backend running ✓ — try /stats or /simulate"))
+	})
+	
+	log.Println("Amina Water backend running on :8080")
+	log.Fatal(http.ListenAndServe(":8080", nil))
+}
 }
 
 func handleStats(w http.ResponseWriter, _ *http.Request){
